@@ -2319,7 +2319,12 @@ class BufferStack
     # exists.
     def juggle_previous
       buf = num_at_pos(2)
+      # TODO check if this option is set first so that the
+      # original state can be restored after choosing the
+      # buffer
+      VIM::command "set nostartofline"
       VIM::command "b #{buf}"
+      VIM::command "set startofline"
     end
 
     def names(n = :all)

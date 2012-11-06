@@ -582,6 +582,9 @@ class LustyJuggler
         "v" => "v",
         "b" => "b",
 
+        # Delete buffer
+        "x" => "x",
+
         # Left and Right keys
         "<Esc>OD" => "Left",
         "<Esc>OC" => "Right",
@@ -653,6 +656,13 @@ class LustyJuggler
       elsif @last_pressed and %w(v b).include?(c)
         c=='v' ? vsplit(@last_pressed) : hsplit(@last_pressed)
         cleanup()
+      elsif c == 'x'
+        if delete_buffer(@last_pressed)
+          cleanup()
+          run()
+        else
+          cleanup(msg='Save your changes first')
+        end
       elsif c == 'Left'
         @last_pressed = (@last_pressed.nil?) ? 0 : (@last_pressed)
         @last_pressed = (@last_pressed - 1) < 1 ? $lj_buffer_stack.length : (@last_pressed - 1)
@@ -668,7 +678,7 @@ class LustyJuggler
     end
 
     # Restore settings, mostly.
-    def cleanup
+    def cleanup(msg='')
       @last_pressed = nil
 
       VIM::set_option "timeoutlen=#{@timeoutlen}"
@@ -684,7 +694,7 @@ class LustyJuggler
       end
 
       @running = false
-      VIM::message ''
+      VIM::message msg
       VIM::command 'redraw'  # Prevents "Press ENTER to continue" message.
     end
 
@@ -711,17 +721,33 @@ class LustyJuggler
 
     def choose(i)
       buf = $lj_buffer_stack.num_at_pos(i)
+      # Preserve cursor location when switching to buffer
+      # TODO check if this option is set first so that the
+      # original state can be restored after choosing the
+      # buffer
+      VIM::command "set nostartofline"
       VIM::command "b #{buf}"
+      VIM::command "set startofline"
     end
-    
+
     def vsplit(i)
       buf = $lj_buffer_stack.num_at_pos(i)
       VIM::command "vert sb #{buf}"
     end
-    
+
     def hsplit(i)
       buf = $lj_buffer_stack.num_at_pos(i)
       VIM::command "sb #{buf}"
+    end
+
+    def delete_buffer(i)
+      buf = $lj_buffer_stack.num_at_pos(i)
+      if VIM::evaluate_bool("getbufvar(#{buf}, '&modified') == 1")
+        false
+      else
+        VIM::command "bd #{buf}"
+        true
+      end
     end
 
     def map_key(key, action)
@@ -1105,7 +1131,12 @@ class BufferStack
     # exists.
     def juggle_previous
       buf = num_at_pos(2)
+      # TODO check if this option is set first so that the
+      # original state can be restored after choosing the
+      # buffer
+      VIM::command "set nostartofline"
       VIM::command "b #{buf}"
+      VIM::command "set startofline"
     end
 
     def names(n = :all)
