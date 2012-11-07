@@ -252,7 +252,7 @@ function! s:LustyJugglerCancel()
 endfunction
 
 function! s:LustyJugglePreviousRun()
-  ruby LustyJ::profile() { $lj_buffer_stack.juggle_previous }
+  ruby LustyJ::profile() { $lusty_juggler.juggle_previous }
 endfunction
 
 " Setup the autocommands that handle buffer MRU ordering.
@@ -698,6 +698,14 @@ class LustyJuggler
       VIM::command 'redraw'  # Prevents "Press ENTER to continue" message.
     end
 
+    # Switch to the previous buffer (the one you were using before the
+    # current one).  This is basically a smarter replacement for :b#,
+    # accounting for the situation where your previous buffer no longer
+    # exists.
+    def juggle_previous
+      switch_buffer(2)
+    end
+
   private
     def self.alt_tab_mode_active?
        return (VIM::exists?("g:LustyJugglerAltTabMode") and
@@ -720,24 +728,19 @@ class LustyJuggler
     end
 
     def choose(i)
-      buf = $lj_buffer_stack.num_at_pos(i)
-      # Preserve cursor location when switching to buffer
-      # TODO check if this option is set first so that the
-      # original state can be restored after choosing the
-      # buffer
-      VIM::command "set nostartofline"
-      VIM::command "b #{buf}"
-      VIM::command "set startofline"
+      switch_buffer(i)
     end
 
     def vsplit(i)
-      buf = $lj_buffer_stack.num_at_pos(i)
-      VIM::command "vert sb #{buf}"
+      # buf = $lj_buffer_stack.num_at_pos(i)
+      # VIM::command "vert sb #{buf}"
+      switch_buffer(i, 'v')
     end
 
     def hsplit(i)
-      buf = $lj_buffer_stack.num_at_pos(i)
-      VIM::command "sb #{buf}"
+      # buf = $lj_buffer_stack.num_at_pos(i)
+      # VIM::command "sb #{buf}"
+      switch_buffer(i, 'h')
     end
 
     def delete_buffer(i)
@@ -747,6 +750,34 @@ class LustyJuggler
       else
         VIM::command "bd #{buf}"
         true
+      end
+    end
+
+    def switch_buffer(i, split = nil)
+      buf = $lj_buffer_stack.num_at_pos(i)
+      # Preserve cursor location when switching to buffer
+      # Check if the startofline option is set so we can
+      # be sure to restore it's value once we're done
+      startofline = VIM::evaluate_bool("&startofline == 1")
+      if startofline
+        # To preserve the cursor positon
+        # disable the startofline setting
+        # before switching buffer
+        VIM::command "set nostartofline"
+      end
+      # Switch buffer
+      case split
+      when nil
+        VIM::command "b #{buf}"
+      when 'v'
+        VIM::command "vert sb #{buf}"
+      when 'h'
+        VIM::command "sb #{buf}"
+      end
+      if startofline
+        # Restore the startofline setting
+        # if required
+        VIM::command "set startofline"
       end
     end
 
@@ -1129,15 +1160,12 @@ class BufferStack
     # current one).  This is basically a smarter replacement for :b#,
     # accounting for the situation where your previous buffer no longer
     # exists.
-    def juggle_previous
-      buf = num_at_pos(2)
-      # TODO check if this option is set first so that the
-      # original state can be restored after choosing the
-      # buffer
-      VIM::command "set nostartofline"
-      VIM::command "b #{buf}"
-      VIM::command "set startofline"
-    end
+    # def juggle_previous
+    #   buf = num_at_pos(2)
+    #   VIM::command "set nostartofline"
+    #   VIM::command "b #{buf}"
+    #   VIM::command "set startofline"
+    # end
 
     def names(n = :all)
       # Get the last n buffer names by MRU.  Show only as much of

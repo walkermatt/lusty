@@ -2313,20 +2313,6 @@ class BufferStack
       end
     end
 
-    # Switch to the previous buffer (the one you were using before the
-    # current one).  This is basically a smarter replacement for :b#,
-    # accounting for the situation where your previous buffer no longer
-    # exists.
-    def juggle_previous
-      buf = num_at_pos(2)
-      # TODO check if this option is set first so that the
-      # original state can be restored after choosing the
-      # buffer
-      VIM::command "set nostartofline"
-      VIM::command "b #{buf}"
-      VIM::command "set startofline"
-    end
-
     def names(n = :all)
       # Get the last n buffer names by MRU.  Show only as much of
       # the name as necessary to differentiate between buffers of
