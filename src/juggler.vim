@@ -252,7 +252,7 @@ function! s:LustyJugglerCancel()
 endfunction
 
 function! s:LustyJugglePreviousRun()
-  ruby LustyJ::profile() { $lj_buffer_stack.juggle_previous }
+  ruby LustyJ::profile() { $lusty_juggler.juggle_previous }
 endfunction
 
 " Setup the autocommands that handle buffer MRU ordering.
