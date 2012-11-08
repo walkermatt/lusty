@@ -533,6 +533,34 @@ module LustyJ
     VIM::evaluate_bool("exists('#{opt_name}') && #{opt_name} != '0'")
   end
 
+  def self.switch_buffer(buf_num, open_mode)
+      # Check if the startofline option is set so we can
+      # be sure to restore it's value once we're done
+      startofline = VIM::evaluate_bool("&startofline == 1")
+      if startofline
+        # To preserve the cursor positon disable the startofline setting
+        # before switching buffer
+        VIM::command "set nostartofline"
+      end
+      # Switch buffer and split if asked
+      case open_mode
+      when :current_tab
+        VIM::command "b #{buf_num}"
+      when :new_tab
+        VIM::command "tab split | b #{buf_num}"
+      when :new_vsplit
+        VIM::command "vert sb #{buf_num}"
+      when :new_split
+        VIM::command "sb #{buf_num}"
+      else
+        LustyJ::assert(false, "bad open mode")
+      end
+      if startofline
+        # Restore the startofline setting if required
+        VIM::command "set startofline"
+      end
+  end
+
   def self.profile
     # Profile (if enabled) and provide better
     # backtraces when there's an error.
@@ -736,7 +764,7 @@ class LustyJuggler
     # accounting for the situation where your previous buffer no longer
     # exists.
     def juggle_previous
-      switch_buffer(2)
+      switch_buffer(2, :current_tab)
     end
 
   private
@@ -761,21 +789,27 @@ class LustyJuggler
     end
 
     def choose(i)
-      switch_buffer(i)
+      switch_buffer(i, :current_tab)
     end
 
     def vsplit(i)
-      # buf = $lj_buffer_stack.num_at_pos(i)
-      # VIM::command "vert sb #{buf}"
-      switch_buffer(i, 'v')
+      switch_buffer(i, :new_vsplit)
     end
 
     def hsplit(i)
-      # buf = $lj_buffer_stack.num_at_pos(i)
-      # VIM::command "sb #{buf}"
-      switch_buffer(i, 'h')
+      switch_buffer(i, :new_split)
     end
 
+    # Switch to buffer i in the stack specifying whether to
+    # open in current window, vsplit etc. as defined in
+    # LustyJ::switch_buffer
+    def switch_buffer(i, open_mode)
+      buf_num = $lj_buffer_stack.num_at_pos(i)
+      LustyJ::switch_buffer(buf_num, open_mode)
+    end
+
+    # Delete the buffer i if it's not modified otherwise just
+    # return false to indicate that it can't be done
     def delete_buffer(i)
       buf = $lj_buffer_stack.num_at_pos(i)
       if VIM::evaluate_bool("getbufvar(#{buf}, '&modified') == 1")
@@ -783,34 +817,6 @@ class LustyJuggler
       else
         VIM::command "bd #{buf}"
         true
-      end
-    end
-
-    def switch_buffer(i, split = nil)
-      buf = $lj_buffer_stack.num_at_pos(i)
-      # Preserve cursor location when switching to buffer
-      # Check if the startofline option is set so we can
-      # be sure to restore it's value once we're done
-      startofline = VIM::evaluate_bool("&startofline == 1")
-      if startofline
-        # To preserve the cursor positon
-        # disable the startofline setting
-        # before switching buffer
-        VIM::command "set nostartofline"
-      end
-      # Switch buffer
-      case split
-      when nil
-        VIM::command "b #{buf}"
-      when 'v'
-        VIM::command "vert sb #{buf}"
-      when 'h'
-        VIM::command "sb #{buf}"
-      end
-      if startofline
-        # Restore the startofline setting
-        # if required
-        VIM::command "set startofline"
       end
     end
 
@@ -1267,17 +1273,6 @@ class BufferStack
         @stack << VIM::Buffer[i].number
       end
     end
-
-    # Switch to the previous buffer (the one you were using before the
-    # current one).  This is basically a smarter replacement for :b#,
-    # accounting for the situation where your previous buffer no longer
-    # exists.
-    # def juggle_previous
-    #   buf = num_at_pos(2)
-    #   VIM::command "set nostartofline"
-    #   VIM::command "b #{buf}"
-    #   VIM::command "set startofline"
-    # end
 
     def names(n = :all)
       # Get the last n buffer names by MRU.  Show only as much of
