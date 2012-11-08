@@ -101,26 +101,12 @@ class BufferExplorer < Explorer
       cleanup()
       LustyM::assert($curwin == @calling_window)
 
-      number = entry.vim_buffer.number
-      LustyM::assert(number)
+      buf_num = entry.vim_buffer.number
+      LustyM::assert(buf_num)
 
-      cmd = case open_mode
-            when :current_tab
-              "b"
-            when :new_tab
-              # For some reason just using tabe or e gives an error when
-              # the alternate-file isn't set.
-              "tab split | b"
-            when :new_split
-	      "sp | b"
-            when :new_vsplit
-	      "vs | b"
-            else
-              LustyM::assert(false, "bad open mode")
-            end
-
-      VIM::command "silent #{cmd} #{number}"
+      LustyM::switch_buffer(buf_num, open_mode)
     end
+
 end
 end
 

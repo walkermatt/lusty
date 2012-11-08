@@ -87,6 +87,34 @@ module LustyM
     VIM::evaluate_bool("exists('#{opt_name}') && #{opt_name} != '0'")
   end
 
+  def self.switch_buffer(buf_num, open_mode)
+      # Check if the startofline option is set so we can
+      # be sure to restore it's value once we're done
+      startofline = VIM::evaluate_bool("&startofline == 1")
+      if startofline
+        # To preserve the cursor positon disable the startofline setting
+        # before switching buffer
+        VIM::command "set nostartofline"
+      end
+      # Switch buffer and split if asked
+      case open_mode
+      when :current_tab
+        VIM::command "b #{buf_num}"
+      when :new_tab
+        VIM::command "tab split | b #{buf_num}"
+      when :new_vsplit
+        VIM::command "vert sb #{buf_num}"
+      when :new_split
+        VIM::command "sb #{buf_num}"
+      else
+        LustyM::assert(false, "bad open mode")
+      end
+      if startofline
+        # Restore the startofline setting if required
+        VIM::command "set startofline"
+      end
+  end
+
   def self.profile
     # Profile (if enabled) and provide better
     # backtraces when there's an error.
